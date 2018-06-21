@@ -3,7 +3,7 @@ var events = require('events')
 
 var POLL_INTERVAL = 1000
 var STATES = { NothingSpecial: 0, Opening: 1, Buffering: 2, Playing: 3, Paused: 4, Stopped: 5, Ended: 6, Error: 7 }
-var PROPS = ['volume', 'time', 'paused', 'state', 'length', 'mediaSessionId', 'subtitlesSrc', 'subtitlesDelay', 'subtitlesSize']
+var PROPS = ['audio', 'audioTrack', 'volume', 'time', 'paused', 'state', 'length', 'mediaSessionId', 'subtitlesSrc', 'subtitlesDelay', 'subtitlesSize']
 
 function Client (url) {
   var self = new events.EventEmitter()
