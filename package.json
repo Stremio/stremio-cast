@@ -24,7 +24,7 @@
   "homepage": "https://github.com/Ivshti/stremio-cast#readme",
   "dependencies": {
     "events": "^1.1.1",
-    "node-fetch": "^1.6.0"
+    "node-fetch": "^2.2.0"
   },
   "browser": {
     "node-fetch": false
