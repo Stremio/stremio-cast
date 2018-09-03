@@ -1,33 +1,34 @@
 var fetch = typeof (window) !== 'undefined' ? window.fetch : require('node-fetch')
-var events = require('events')
+var Interface = require('./PDI');
 
 var POLL_INTERVAL = 1000
-var STATES = { NothingSpecial: 0, Opening: 1, Buffering: 2, Playing: 3, Paused: 4, Stopped: 5, Ended: 6, Error: 7 }
-var PROPS = ['audio', 'audioTrack', 'volume', 'time', 'paused', 'state', 'length', 'mediaSessionId', 'subtitlesSrc', 'subtitlesDelay', 'subtitlesSize']
 
-function Client (url) {
-  var self = new events.EventEmitter()
+function Client (url, stremio, enginefs) {
+  //var self = new events.EventEmitter()
+
+  var self = new Interface(stremio, enginefs);
 
   self.initialized = false
 
-  var status = { } // last state received from server
+  self.mediaStatus = { }; // last state received from server
   var modified = { } // properties which we've modified, that have to be pushed to the server
 
   var timer = null // next sync timer
 
-  PROPS.forEach(function (p) {
-    Object.defineProperty(self, p, {
-      get: function () { return modified.hasOwnProperty(p) ? modified[p] : status[p] },
-      set: function (v) {
-        modified[p] = v
-        resetTimer(50) // do a sync in 50ms
-        if (p === 'volume') self.emit('volumechanged')
-      }
-    })
-  })
+  self.on('propertychanged', function(prop, val) {
+        modified[prop] = val;
+        resetTimer(50); // do a sync in 50ms
+  });
 
-  self.play = function (src) { self.source = modified.source = src; resetTimer(50) }
-  self.stop = function () { if (! self.source) return; resetTimer(50); self.source = modified.source = null;  }
+  self.play = function (libItem) {
+	  self.source = modified.source = libItem.stream.url;
+	  resetTimer(50);
+  };
+  self.stop = function () {
+	  if (! self.source) return;
+	  resetTimer(50);
+	  self.source = modified.source = null;
+  };
 
   function sync () {
     var p = fetch(url, { method: 'POST', body: JSON.stringify(modified), headers: { 'content-type': 'application/json' } })
@@ -35,9 +36,9 @@ function Client (url) {
 
     p.then(function (res) { return res.json() })
     .then(function (resp) {
-      var prev = status 
-      status = resp // server must send back full status
-      sendEvs(prev, status) // compare old status vs new and send events if we have to; we must have updated 'status' before doing this
+      var changed = Interface.syncData(self.mediaStatus, resp);
+	  self.emitProperEvent(changed);
+
       resetTimer() // trigger sync after POLL_INTERVAL
     })
   }
@@ -45,11 +46,6 @@ function Client (url) {
   function resetTimer (t) {
     clearTimeout(timer)
     timer = self.source ? setTimeout(sync, t || POLL_INTERVAL) : null
-  }
-
-  function sendEvs (old, current) {
-    if (current.state !== old.state || current.source !== old.source || current.mediaSessionId !== old.mediaSessionId) self.emit('statechanged', { state: current.state })
-    if (current.time !== old.time) self.emit('timeupdate', { time: current.time })
   }
 
   return self
